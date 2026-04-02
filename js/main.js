@@ -247,7 +247,9 @@
 		  800,
 		  "swing",
 		  function () {
-			window.location.hash = target;
+			if (window.history && window.history.replaceState) {
+			  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+			}
 		  }
 		);
 	});
