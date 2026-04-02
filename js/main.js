@@ -46,13 +46,6 @@
 	});
   
 	/*----------------------------------------------------- */
-	/* Alert Boxes
-		------------------------------------------------------- */
-	$(".alert-box").on("click", ".close", function () {
-	  $(this).parent().fadeOut(500);
-	});
-  
-	/*----------------------------------------------------- */
 	/* Stat Counter
 		------------------------------------------------------- */
 	let statSection = $("#stats"),
@@ -83,18 +76,95 @@
   
 	  offset: "90%",
 	});
-  
-	/*---------------------------------------------------- */
-	/*	Masonry
-	  ------------------------------------------------------ */
-	let containerProjects = $("#folio-wrapper");
-  
-	containerProjects.imagesLoaded(function () {
-	  containerProjects.masonry({
-		itemSelector: ".folio-item",
-		resize: true,
+
+	/*----------------------------------------------------- */
+	/* Skills Animation + Reveal
+		------------------------------------------------------- */
+	let skillBars = $(".skill-bars"),
+	  skillProgress = skillBars.find(".progress"),
+	  revealBlocks = $(".about-card, #portfolio .folio-item, .service, .contact-card, #contact form");
+
+	skillProgress.each(function () {
+	  let $bar = $(this);
+	  let widthClass = ($bar.attr("class") || "").match(/percent(\d{1,3})/);
+	  let targetWidth = widthClass ? widthClass[1] + "%" : "0%";
+
+	  $bar.attr("data-target-width", targetWidth);
+	  $bar.css("width", "0%");
+	});
+
+	skillBars.waypoint({
+	  handler: function (direction) {
+		if (direction === "down") {
+		  let $list = $(this.element);
+
+		  $list.addClass("is-animated");
+		  $list.find(".progress").each(function (index) {
+			let $bar = $(this);
+			let targetWidth = $bar.attr("data-target-width") || "0%";
+
+			$bar.delay(index * 140).animate(
+			  { width: targetWidth },
+			  900,
+			  "swing"
+			);
+		  });
+
+		  this.destroy();
+		}
+	  },
+	  offset: "80%",
+	});
+
+	revealBlocks.addClass("reveal-up");
+	revealBlocks.each(function (index) {
+	  let element = this;
+	  $(element).css("transition-delay", Math.min(index % 4, 3) * 90 + "ms");
+
+	  $(element).waypoint({
+		handler: function (direction) {
+		  if (direction === "down") {
+			$(element).addClass("is-visible");
+			this.destroy();
+		  }
+		},
+		offset: "88%",
 	  });
 	});
+  
+	/*---------------------------------------------------- */
+	/*	Portfolio Carousel
+	  ------------------------------------------------------ */
+	let containerProjects = $("#folio-wrapper");
+
+	if (containerProjects.hasClass("portfolio-carousel")) {
+	  containerProjects.owlCarousel({
+		navigation: true,
+		navigationText: [
+		  "<i class='fa fa-angle-left'></i>",
+		  "<i class='fa fa-angle-right'></i>",
+		],
+		pagination: false,
+		autoPlay: 5000,
+		stopOnHover: true,
+		rewindNav: true,
+		itemsCustom: [
+		  [0, 1],
+		  [700, 2],
+		  [1024, 3],
+		  [1400, 4],
+		],
+		slideSpeed: 700,
+		paginationSpeed: 500,
+	  });
+	} else {
+	  containerProjects.imagesLoaded(function () {
+		containerProjects.masonry({
+		  itemSelector: ".folio-item",
+		  resize: true,
+		});
+	  });
+	}
   
 	/*----------------------------------------------------*/
 	/*	Modal Popup
@@ -127,10 +197,10 @@
   
 	// nav items
 	nav.find("li a").on("click", function () {
-	  // update the toggle button
-	  toggleButton.toggleClass("is-clicked");
-	  // fadeout the navigation panel
-	  nav.fadeOut();
+	  if (window.matchMedia("(max-width: 768px)").matches) {
+		toggleButton.removeClass("is-clicked");
+		nav.fadeOut();
+	  }
 	});
   
 	/*---------------------------------------------------- */
@@ -165,13 +235,14 @@
 	  e.preventDefault();
   
 	  let target = this.hash,
-		$target = $(target);
+		$target = $(target),
+		headerHeight = $("header").outerHeight() || 0;
   
 	  $("html, body")
 		.stop()
 		.animate(
 		  {
-			scrollTop: $target.offset().top,
+			scrollTop: Math.max($target.offset().top - headerHeight + 2, 0),
 		  },
 		  800,
 		  "swing",
@@ -185,6 +256,49 @@
 	/*  Placeholder Plugin Settings
 	  ------------------------------------------------------ */
 	$("input, textarea, select").placeholder();
+
+	/*---------------------------------------------------- */
+	/* Contact Form
+	  ------------------------------------------------------ */
+	let contactForm = $("#contactForm"),
+	  submitLoader = $("#submit-loader"),
+	  messageWarning = $("#message-warning"),
+	  messageSuccess = $("#message-success");
+
+	contactForm.on("submit", function (e) {
+	  e.preventDefault();
+
+	  let $form = $(this),
+		submitButton = $form.find(".submitform");
+
+	  messageWarning.hide().html("");
+	  messageSuccess.hide();
+	  submitLoader.fadeIn(200);
+	  submitButton.prop("disabled", true);
+
+	  $.ajax({
+		url: $form.attr("action"),
+		method: "POST",
+		data: $form.serialize(),
+		dataType: "json",
+		headers: {
+		  Accept: "application/json",
+		},
+	  })
+		.done(function () {
+		  submitLoader.fadeOut(200);
+		  submitButton.prop("disabled", false);
+		  messageSuccess.fadeIn(200);
+		  $form[0].reset();
+		})
+		.fail(function () {
+		  submitLoader.fadeOut(200);
+		  submitButton.prop("disabled", false);
+		  messageWarning
+			.html("Não foi possível enviar sua mensagem agora. Tente novamente em instantes ou fale comigo pelo e-mail.")
+			.fadeIn(200);
+		});
+	});
   
 	/*----------------------------------------------------- */
 	/* Back to top
@@ -192,16 +306,13 @@
 	let pxShow = 300; // height on which the button will show
 	let fadeInTime = 400; // how slow/fast you want the button to show
 	let fadeOutTime = 400; // how slow/fast you want the button to hide
-	let scrollSpeed = 300; // how slow/fast you want the button to scroll to top. can be a value, 'slow', 'normal' or 'fast'
   
 	// Show or hide the sticky footer button
 	jQuery(window).scroll(function () {
-	  if (!$("#header-search").hasClass("is-visible")) {
-		if (jQuery(window).scrollTop() >= pxShow) {
-		  jQuery("#go-top").fadeIn(fadeInTime);
-		} else {
-		  jQuery("#go-top").fadeOut(fadeOutTime);
-		}
+	  if (jQuery(window).scrollTop() >= pxShow) {
+		jQuery("#go-top").fadeIn(fadeInTime);
+	  } else {
+		jQuery("#go-top").fadeOut(fadeOutTime);
 	  }
 	});
   })(jQuery);
